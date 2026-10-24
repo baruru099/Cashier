@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POSレジ風電卓</title>
+    <!-- iOS (Safari) 用のホーム画面アイコン -->
+    <link rel="apple-touch-icon" href="cashierlogo.jpg">
+    <!-- Android / Chrome / 汎用アイコン -->
+    <link rel="icon" type="image/png" sizes="192x192" href="cashierlogo.jpg">
+    <link rel="icon" type="image/png" sizes="512x512" href="cashierlogo.jpg">
+    <style>
+        :root {
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --primary-color: #2563eb;
+            --primary-hover: #1850ca;
+            --accent-color: #059669;
+            --danger-color: #dc2626;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --border-color: #e5e7eb;
+            --scan-border-color: #ffffff82;
+            --scan-accent-color: #62df5b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        /* メインコンテナ */
+        .payment-overlay {
+            position: fixed;
+            z-index: 10;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            background-color: var(--bg-color);
+            opacity: 0;
+            visibility: hidden;
+            display: grid;
+            place-items: center;
+            overflow-y: auto;
+            padding: 20px 0;
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+        }
+
+        .payment-overlay.open {
+            opacity: 1;
+            visibility: visible;
+            z-index: 10;
+        }
+
+        /* --- 支払い完了カード --- */
+        .thankyou-card {
+            width: min(420px, calc(100% - 40px));
+            padding: 40px 30px;
+            border-radius: 20px;
+            background: var(--card-bg);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            text-align: center;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        .payment-overlay.open .thankyou-card {
+            animation: popUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes popUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .icon-container {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 24px;
+        }
+
+        .checkmark-circle {
+            stroke: var(--accent-color);
+            stroke-width: 3;
+            fill: none;
+            stroke-dasharray: 166;
+            stroke-dashoffset: 166;
+            transform-origin: center;
+            transform: rotate(-90deg);
+        }
+
+        .checkmark-check {
+            transform-origin: 50% 50%;
+            stroke: var(--accent-color);
+            stroke-width: 3;
+            fill: none;
+            stroke-dasharray: 48;
+            stroke-dashoffset: 48;
+        }
+
+        .payment-overlay.open .checkmark-circle {
+            animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) 0.2s forwards;
+        }
+
+        .payment-overlay.open .checkmark-check {
+            animation: stroke 0.4s cubic-bezier(0.65, 0, 0.45, 1) 0.7s forwards;
+        }
+
+        @keyframes stroke {
+            to {
+                stroke-dashoffset: 0;
+            }
+        }
+
+        .title {
+            margin-bottom: 12px;
+            color: var(--text-main);
+            font-size: 1.5rem;
+            font-weight: 700;
+            opacity: 0;
+        }
+
+        .message {
+            margin-bottom: 24px;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            opacity: 0;
+        }
+
+        .details-box {
+            margin-bottom: 28px;
+            padding: 16px;
+            border-radius: 12px;
+            background-color: #f8fafc;
+            font-size: 0.9rem;
+            opacity: 0;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            color: var(--text-muted);
+        }
+
+        .detail-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .detail-value {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        .btn-home {
+            display: inline-block;
+            width: 100%;
+            padding: 14px 0;
+            border-radius: 10px;
+            background-color: var(--primary-color);
+            color: #ffffff;
+            text-decoration: none;
+            font-weight: 600;
+            opacity: 0;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .btn-home:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-home:active {
+            transform: scale(0.98);
+        }
+
+        .payment-overlay.open .title {
+            animation: fadeIn 0.5s ease forwards 0.8s;
+        }
+
+        .payment-overlay.open .message {
+            animation: fadeIn 0.5s ease forwards 0.9s;
+        }
+
+        .payment-overlay.open .details-box {
+            animation: fadeIn 0.5s ease forwards 1s;
+        }
+
+        .payment-overlay.open .btn-home {
+            animation: fadeIn 0.5s ease forwards 1.1s;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+            }
+        }
+
+        /* ★ カート・お会計（右側）の幅を狭く調整 */
+        .pos-container {
+            display: grid;
+            grid-template-columns: 1fr 500px;
+            /* 右側幅を300pxに固定し、スリム化 */
+            gap: 20px;
+            width: 100%;
+            height: 95vh;
+        }
+
+        .panel {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section-title {
+            display: flex;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 6px;
+        }
+
+        #toggle-scan-btn {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            z-index: 5;
+            /* カメラ(#interactive)の上に表示するため z-index を高く設定 */
+            border: none;
+            background-color: var(--primary-color);
+            color: #ffffff;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        #toggle-scan-btn:hover {
+            opacity: 0.9;
+        }
+
+        #toggle-scan-btn:active {
+            transform: scale(0.96);
+        }
+
+        /* --- 左側: 商品選択 & テンキー --- */
+        .left-side {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* 商品一覧エリア */
+        .product-section {
+            flex: 1;
+            position: relative;
+        }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+            gap: 8px;
+        }
+
+        .product-btn {
+            background-color: #f8fafc;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px 8px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            min-height: 64px;
+        }
+
+        .product-btn:hover {
+            border-color: var(--primary-color);
+            background-color: #eff6ff;
+            transform: translateY(-2px);
+        }
+
+        .product-btn:active {
+            transform: translateY(0);
+        }
+
+        /* カメラエリア（普段は非表示＆エリア上に絶対配置） */
+        #interactive {
+            display: none;
+            /* 普段は非表示 */
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            /* 商品ボタンの上に重ねる */
+            background-color: #000;
+            /* カメラ起動までの黒背景 */
+            border-radius: 8px;
+            overflow: hidden;
+            visibility: hidden;
+        }
+
+        /* カメラが起動中（activeクラスが付与された時）だけ表示 */
+        #interactive.active {
+            display: block;
+            visibility: visible;
+        }
+
+        /* ビデオとキャンバスのサイズ固定 */
+        #interactive video,
+        #interactive canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        #interactive span {
+            width: 80px;
+            height: 80px;
+            display: block;
+            position: absolute;
+        }
+        #interactive span:nth-child(1) {
+            border-left: 8px solid var(--scan-border-color);
+            border-top: 8px solid var(--scan-border-color);
+            top: 30px;
+            left: 30px;
+        }
+        #interactive span:nth-child(2) {
+            border-right: 8px solid var(--scan-border-color);
+            border-top: 8px solid var(--scan-border-color);
+            top: 30px;
+            right: 30px;
+        }
+        #interactive span:nth-child(3) {
+            border-bottom: 8px solid var(--scan-border-color);
+            border-left: 8px solid var(--scan-border-color);
+            bottom: 30px;
+            left: 30px;
+        }
+        #interactive span:nth-child(4) {
+            border-bottom: 8px solid var(--scan-border-color);
+            border-right: 8px solid var(--scan-border-color);
+            bottom: 30px;
+            right: 30px;
+        }
+        #interactive.success span:nth-child(1) {
+            border-left: 8px solid var(--scan-accent-color);
+            border-top: 8px solid var(--scan-accent-color);
+        }
+        #interactive.success span:nth-child(2) {
+            border-right: 8px solid var(--scan-accent-color);
+            border-top: 8px solid var(--scan-accent-color);
+        }
+        #interactive.success span:nth-child(3) {
+            border-bottom: 8px solid var(--scan-accent-color);
+            border-left: 8px solid var(--scan-accent-color);
+        }
+        #interactive.success span:nth-child(4) {
+            border-bottom: 8px solid var(--scan-accent-color);
+            border-right: 8px solid var(--scan-accent-color);
+        }
+
+        /* テンキーエリア */
+        .keypad-section {
+            background: #f9fafb;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .keypad-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .keypad-btn {
+            background: var(--card-bg);
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 14px;
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: var(--text-main);
+            cursor: pointer;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            transition: background 0.1s;
+        }
+
+        .keypad-btn:hover {
+            background: #f3f4f6;
+        }
+
+        .keypad-btn:active {
+            background: #e5e7eb;
+        }
+
+        .keypad-btn.bs-btn {
+            background: #fee2e2;
+            color: var(--danger-color);
+            border-color: #fca5a5;
+        }
+
+        .keypad-btn.bs-btn:hover {
+            background: #fecaca;
+        }
+
+        /* --- 右側: カート & 会計エリア --- */
+        .right-side {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* カートリスト */
+        .cart-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 0;
+            /* 高さを収めるために必要 */
+        }
+
+        .cart-list {
+            list-style: none;
+            overflow-y: auto;
+            flex: 1;
+            padding-right: 4px;
+            min-height: 0;
+            max-height: 54vh;
+            /* 高さを収めるために必要 */
+        }
+
+        .cart-item {
+            margin-left: 5px;
+            margin-right: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px dashed var(--border-color);
+            font-size: 0.95rem;
+        }
+
+        /* 会計サマリー */
+        .summary-section {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 16px;
+            border: 1px solid var(--border-color);
+            margin-top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .summary-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .summary-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .summary-row.total .summary-value {
+            font-size: 1.8rem;
+            color: var(--primary-color);
+        }
+
+        .summary-row.change .summary-value {
+            font-size: 1.4rem;
+            color: var(--accent-color);
+        }
+
+        .payment-button {
+            width: 100%;
+            min-height: 56px;
+            margin-top: 14px;
+            padding: 14px 20px;
+            border: 0;
+            border-radius: 8px;
+            background-color: rgb(157, 157, 157);
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+            transition: background-color 0.15s ease, transform 0.15s ease;
+        }
+
+        .payment-button.enable {
+            background-color: #059669;
+        }
+
+        .payment-button:hover.enable {
+            background: #047857;
+        }
+
+        .payment-button:active.enable {
+            transform: translateY(1px);
+        }
+
+        .payment-button:focus-visible {
+            outline: 3px solid #a7f3d0;
+            outline-offset: 3px;
+        }
+
+        /* タブレット横向き */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .pos-container {
+                grid-template-columns: 1fr 280px;
+                gap: 14px;
+                height: 90vh;
+            }
+
+            .panel {
+                padding: 16px;
+            }
+
+            .product-grid {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            }
+
+            .product-btn {
+                min-height: 60px;
+            }
+
+            .keypad-section {
+                padding: 12px;
+            }
+
+            .keypad-btn {
+                min-height: 48px;
+                padding: 10px;
+            }
+        }
+
+        /* レスポンシブ (タブレット縦向き・スマホ表示対応) */
+        @media (max-width: 768px) {
+            body {
+                align-items: flex-start;
+                padding: 12px;
+            }
+
+            .pos-container {
+                grid-template-columns: 1fr;
+                gap: 12px;
+                height: auto;
+                max-height: none;
+            }
+
+            .panel {
+                padding: 16px;
+            }
+
+            .cart-list {
+                max-height: 40vh;
+            }
+
+            .product-btn {
+                min-height: 60px;
+            }
+
+            .keypad-btn {
+                min-height: 48px;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="payment-overlay" id="payment-overlay">
+        <div class="thankyou-card" id="thankyou-card">
+            <div class="icon-container">
+                <svg viewBox="0 0 52 52" width="100%" height="100%" aria-hidden="true">
+                    <circle class="checkmark-circle" cx="26" cy="26" r="23" />
+                    <path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
+                </svg>
+            </div>
+
+            <h1 class="title">お支払いが完了しました</h1>
+            <p class="message">
+                ご購入いただきありがとうございます。<br>
+                決済処理が正常に完了いたしました。
+            </p>
+
+            <div class="details-box">
+                <div class="detail-row">
+                    <span>注文番号</span>
+                    <span class="detail-value">#12345678</span>
+                </div>
+                <div class="detail-row">
+                    <span>お支払い金額</span>
+                    <span class="detail-value" id="detail-value">¥2,150</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="pos-container">
+        <div class="panel left-side">
+            <div class="product-section">
+                <h2 class="section-title">
+                    商品一覧
+                </h2>
+                <div class="product-grid">
+                    <button class="product-btn" id="postcard">
+                        <span>ポストカード_1</span>
+                    </button>
+                    <button class="product-btn" id="postcard_2">
+                        <span>ポストカード_2</span>
+                    </button>
+                    <button class="product-btn" id="illustbook">
+                        <span>画集</span>
+                    </button>
+                    <button class="product-btn" id="acrylkeyholder">
+                        <span>アクキー</span>
+                    </button>
+
+                </div>
+
+
+                <div id="interactive">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+                <button type="button" id="toggle-scan-btn">
+                    カメラ起動
+                </button>
+            </div>
+
+            <div class="keypad-section">
+                <h2 class="section-title">お預かり入力</h2>
+                <div class="keypad-grid">
+                    <button class="keypad-btn" id="keypad-7">7</button>
+                    <button class="keypad-btn" id="keypad-8">8</button>
+                    <button class="keypad-btn" id="keypad-9">9</button>
+                    <button class="keypad-btn" id="keypad-4">4</button>
+                    <button class="keypad-btn" id="keypad-5">5</button>
+                    <button class="keypad-btn" id="keypad-6">6</button>
+                    <button class="keypad-btn" id="keypad-1">1</button>
+                    <button class="keypad-btn" id="keypad-2">2</button>
+                    <button class="keypad-btn" id="keypad-3">3</button>
+                    <button class="keypad-btn" id="keypad-0">0</button>
+                    <button class="keypad-btn" id="keypad-00">00</button>
+                    <button class="keypad-btn bs-btn" id="keypad-bs">BS</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel right-side">
+            <div class="cart-section">
+                <h2 class="section-title">カート内一覧</h2>
+                <ul class="cart-list" id="cart-container">
+                </ul>
+            </div>
+
+            <div class="summary-section">
+                <div class="summary-row total">
+                    <span class="summary-label">合計金額</span>
+                    <p class="summary-value" id="summary-value">¥0</p>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">お預かり</span>
+                    <p class="summary-value" id="receive-value">¥0</p>
+                </div>
+                <div class="summary-row change">
+                    <span class="summary-label">お釣り</span>
+                    <p class="summary-value" id="result-summary">¥0</p>
+                </div>
+            </div>
+
+            <button class="payment-button" type="button" id="payment-button">お支払い完了</button>
+        </div>
+    </div>
+    <!-- CDNで読み込む例 -->
+    <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
+    <script src="cashier.js"></script>
+    <script src="scan.js"></script>
+</body>
+
+</html>

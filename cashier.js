@@ -105,7 +105,7 @@ document.querySelectorAll('.keypad-btn').forEach(button => {
 
         // 入力後 0.8秒待ってからお釣りを再計算
         clearTimeout(calculationTimer);
-        calculationTimer = setTimeout(updateSummary, 800);
+        calculationTimer = setTimeout(updateSummary, 500);
     });
 });
 
@@ -137,6 +137,8 @@ if (paymentButton) {
                 updateSummary();
                 clearTimeout(resetTimer);
                 resetTimer = null;
+                const sound = new Audio('ThankyouSound.mp3');
+                sound.play();
             }, 300);
             // 20秒後に自動閉じる
             overlayTimer = setTimeout(() => {

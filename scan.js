@@ -42,6 +42,12 @@ document.addEventListener('DOMContentLoaded', () => {
         interactiveContainer.classList.remove('active'); // カメラ画面を隠す
         scanBtn.textContent = 'カメラ起動';
         scanBtn.style.backgroundColor = 'var(--primary-color)';
+        
+        // 自動挿入されたvideo/canvasなどのDOM要素をクリアしてメモリ解放
+        const videoElem = interactiveContainer.querySelector('video');
+        const canvasElem = interactiveContainer.querySelector('canvas');
+        if (videoElem) videoElem.remove();
+        if (canvasElem) canvasElem.remove();
     }
 
     // ボタンクリックでの切り替え処理
@@ -55,18 +61,31 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     let cooltime = null;
+    let successCooltime = null;
+    const scanSound = new Audio('InCart.mp3');
     // バーコード読み取り時の処理
     Quagga.onDetected((result) => {
         if (cooltime !== null) return;
+                // オーディオファイルを読み込む
+        // 再生する
+        scanSound.currentTime = 0;
+        scanSound.play().catch(() => {});
+        interactiveContainer.classList.add('success');
+        successCooltime = null;
+        successCooltime = setTimeout(() => {
+            interactiveContainer.classList.remove('success');
+            successCooltime = null;
+        }, 300);
         cooltime = setTimeout(() => {
             cooltime = null;
         }, 1500);
         const code = result.codeResult.code;
         console.log("★ 読み取ったバーコード:", code);
+
         const targetItem = items.find(item => item.id === code);
         if (targetItem) {
             addToCart(targetItem);
-        }else {
+        } else {
             console.warn("該当する商品が見つかりませんでした");
         }
     });
