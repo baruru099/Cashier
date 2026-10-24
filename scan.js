@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const scanBtn = document.getElementById('toggle-scan-btn');
     const interactiveContainer = document.getElementById('interactive');
     let isScanning = false;
+    let scanSound = null;
 
     // Quaggaの初期化関数
     function initQuagga() {
@@ -42,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
         interactiveContainer.classList.remove('active'); // カメラ画面を隠す
         scanBtn.textContent = 'カメラ起動';
         scanBtn.style.backgroundColor = 'var(--primary-color)';
-        
+
         // 自動挿入されたvideo/canvasなどのDOM要素をクリアしてメモリ解放
         const videoElem = interactiveContainer.querySelector('video');
         const canvasElem = interactiveContainer.querySelector('canvas');
@@ -57,19 +58,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 stopQuagga();
             } else {
                 initQuagga();
+                if (!scanSound) {
+                    scanSound = new Audio('InCart.mp3');
+                }
             }
         });
     }
     let cooltime = null;
     let successCooltime = null;
-    const scanSound = new Audio('InCart.mp3');
     // バーコード読み取り時の処理
     Quagga.onDetected((result) => {
         if (cooltime !== null) return;
-                // オーディオファイルを読み込む
+        // オーディオファイルを読み込む
         // 再生する
         scanSound.currentTime = 0;
-        scanSound.play().catch(() => {});
+        scanSound.play().catch(() => { });
         interactiveContainer.classList.add('success');
         successCooltime = null;
         successCooltime = setTimeout(() => {
